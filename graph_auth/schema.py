@@ -55,7 +55,7 @@ class UserNode(DjangoObjectType):
         return token
 
 class RegisterUser(relay.ClientIDMutation):
-    class Input(metaclass=DynamicUsernameMeta):
+    class Arguments(metaclass=DynamicUsernameMeta):
         email = graphene.String(required=True)
         password = graphene.String()
         first_name = graphene.String()
@@ -88,7 +88,7 @@ class RegisterUser(relay.ClientIDMutation):
         return RegisterUser(ok=True, user=user)
 
 class LoginUser(relay.ClientIDMutation):
-    class Input(metaclass=DynamicUsernameMeta):
+    class Arguments(metaclass=DynamicUsernameMeta):
         password = graphene.String(required=True)
 
     ok = graphene.Boolean()
@@ -112,7 +112,7 @@ class LoginUser(relay.ClientIDMutation):
             return LoginUser(ok=False, user=None)
 
 class ResetPasswordRequest(relay.ClientIDMutation):
-    class Input:
+    class Arguments:
         email = graphene.String(required=True)
 
     ok = graphene.Boolean()
@@ -157,7 +157,7 @@ class ResetPasswordRequest(relay.ClientIDMutation):
         return ResetPasswordRequest(ok=True)
 
 class ResetPassword(relay.ClientIDMutation):
-    class Input:
+    class Arguments:
         password = graphene.String(required=True)
         id = graphene.String(required=True)
         token = graphene.String(required=True)
@@ -198,7 +198,7 @@ class UpdateUsernameMeta(type):
         return type.__new__(mcs, classname, bases, dictionary)
 
 class UpdateUser(relay.ClientIDMutation):
-    class Input(metaclass=UpdateUsernameMeta):
+    class Arguments(metaclass=UpdateUsernameMeta):
         password = graphene.String()
         current_password = graphene.String()
 
