@@ -21,10 +21,12 @@ from django.utils.http import urlsafe_base64_encode
 
 UserModel = django.contrib.auth.get_user_model()
 
+
 class DynamicUsernameMeta(type):
     def __new__(mcs, classname, bases, dictionary):
         dictionary[UserModel.USERNAME_FIELD] = graphene.String(required=True)
         return type.__new__(mcs, classname, bases, dictionary)
+
 
 class UserNode(DjangoObjectType):
     class Meta:
@@ -34,16 +36,16 @@ class UserNode(DjangoObjectType):
         filter_fields = graph_auth_settings.USER_FIELDS
 
     @classmethod
-    def get_node(cls, id, context, info):
-        user = super(UserNode, cls).get_node(id, context, info)
-        if context.user.id and (user.id == context.user.id or context.user.is_staff):
+    def get_node(cls, info, id):
+        user = super(UserNode, cls).get_node(id, info, info)
+        if info.user.id and (user.id == info.user.id or info.user.is_staff):
             return user
         else:
             return None
 
     token = graphene.String()
-    def resolve_token(self, args, context, info):
-        if self.id != context.user.id and not getattr(self, 'is_current_user', False):
+    def resolve_token(self, info, **args):
+        if self.id != info.user.id and not getattr(self, 'is_current_user', False):
             return None
 
         jwt_payload_handler = api_settings.JWT_PAYLOAD_HANDLER
@@ -53,6 +55,7 @@ class UserNode(DjangoObjectType):
         token = jwt_encode_handler(payload)
 
         return token
+
 
 class RegisterUser(relay.ClientIDMutation):
     class Arguments(metaclass=DynamicUsernameMeta):
@@ -87,6 +90,7 @@ class RegisterUser(relay.ClientIDMutation):
 
         return RegisterUser(ok=True, user=user)
 
+
 class LoginUser(relay.ClientIDMutation):
     class Arguments(metaclass=DynamicUsernameMeta):
         password = graphene.String(required=True)
@@ -111,6 +115,7 @@ class LoginUser(relay.ClientIDMutation):
         else:
             return LoginUser(ok=False, user=None)
 
+
 class ResetPasswordRequest(relay.ClientIDMutation):
     class Arguments:
         email = graphene.String(required=True)
@@ -128,9 +133,9 @@ class ResetPasswordRequest(relay.ClientIDMutation):
                 token = token_generator.make_token(user)
                 link = graph_auth_settings.PASSWORD_RESET_URL_TEMPLATE.format(token=token, uid=uid)
                 input_data = {
-                    "email": user.email, 
-                    "first_name": user.first_name, 
-                    "last_name": user.last_name, 
+                    "email": user.email,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
                     "link": link
                     }
                 message = EmailMessage(graph_auth_settings.CUSTOM_PASSWORD_RESET_TEMPLATE, input_data, graph_auth_settings.EMAIL_FROM, [user.email])
@@ -155,6 +160,7 @@ class ResetPasswordRequest(relay.ClientIDMutation):
             reset_form.save(**options)
 
         return ResetPasswordRequest(ok=True)
+
 
 class ResetPassword(relay.ClientIDMutation):
     class Arguments:
@@ -191,11 +197,13 @@ class ResetPassword(relay.ClientIDMutation):
 
         return ResetPassword(ok=True, user=user)
 
+
 class UpdateUsernameMeta(type):
     def __new__(mcs, classname, bases, dictionary):
         for field in graph_auth_settings.USER_FIELDS:
             dictionary[field] = graphene.String()
         return type.__new__(mcs, classname, bases, dictionary)
+
 
 class UpdateUser(relay.ClientIDMutation):
     class Arguments(metaclass=UpdateUsernameMeta):
@@ -235,6 +243,7 @@ class UpdateUser(relay.ClientIDMutation):
 
         return UpdateUser(ok=True, result=updated_user)
 
+
 class Query(AbstractType):
     user = relay.Node.Field(UserNode)
     users = DjangoFilterConnectionField(UserNode)
@@ -242,6 +251,7 @@ class Query(AbstractType):
     me = graphene.Field(UserNode)
     def resolve_me(self, args, context, info):
         return UserNode.get_node(context.user.id, context, info)
+
 
 class Mutation(AbstractType):
     register_user = RegisterUser.Field()
