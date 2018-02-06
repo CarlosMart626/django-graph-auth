@@ -37,7 +37,7 @@ class UserNode(DjangoObjectType):
 
     @classmethod
     def get_node(cls, info, id):
-        user = super(UserNode, cls).get_node(id, info, info)
+        user = super(UserNode, cls).get_node(info, id)
         if info.context.user.id and (user.id == info.context.user.id or info.context.user.is_staff):
             return user
         else:
