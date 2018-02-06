@@ -38,14 +38,14 @@ class UserNode(DjangoObjectType):
     @classmethod
     def get_node(cls, info, id):
         user = super(UserNode, cls).get_node(id, info, info)
-        if info.user.id and (user.id == info.user.id or info.user.is_staff):
+        if info.context.user.id and (user.id == info.context.user.id or info.context.user.is_staff):
             return user
         else:
             return None
 
     token = graphene.String()
     def resolve_token(self, info, **args):
-        if self.id != info.user.id and not getattr(self, 'is_current_user', False):
+        if self.id != info.context.user.id and not getattr(self, 'is_current_user', False):
             return None
 
         jwt_payload_handler = api_settings.JWT_PAYLOAD_HANDLER
@@ -68,9 +68,9 @@ class RegisterUser(relay.ClientIDMutation):
     user = graphene.Field(UserNode)
 
     @classmethod
-    def mutate_and_get_payload(cls, input, context, info):
+    def mutate_and_get_payload(root, info, **input):
         model = UserModel
-        if graph_auth_settings.ONLY_ADMIN_REGISTRATION and not (context.user.id and context.user.is_staff):
+        if graph_auth_settings.ONLY_ADMIN_REGISTRATION and not (info.context.user.id and info.context.user.is_staff):
             return RegisterUser(ok=False, user=None)
         if 'clientMutationId' in input:
             input.pop('clientMutationId')
@@ -99,7 +99,7 @@ class LoginUser(relay.ClientIDMutation):
     user = graphene.Field(UserNode)
 
     @classmethod
-    def mutate_and_get_payload(cls, input, context, info):
+    def mutate_and_get_payload(root, info, **input):
         model = UserModel
 
         params = {
@@ -123,7 +123,7 @@ class ResetPasswordRequest(relay.ClientIDMutation):
     ok = graphene.Boolean()
 
     @classmethod
-    def mutate_and_get_payload(cls, input, context, info):
+    def mutate_and_get_payload(root, info, **input):
         if graph_auth_settings.CUSTOM_PASSWORD_RESET_TEMPLATE is not None and graph_auth_settings.EMAIL_FROM is not None and graph_auth_settings.PASSWORD_RESET_URL_TEMPLATE is not None:
 
             from mail_templated import EmailMessage
@@ -172,7 +172,7 @@ class ResetPassword(relay.ClientIDMutation):
     user = graphene.Field(UserNode)
 
     @classmethod
-    def mutate_and_get_payload(cls, input, context, info):
+    def mutate_and_get_payload(root, info, **input):
         Model = UserModel
 
         try:
@@ -214,7 +214,7 @@ class UpdateUser(relay.ClientIDMutation):
     result = graphene.Field(UserNode)
 
     @classmethod
-    def mutate_and_get_payload(cls, input, context, info):
+    def mutate_and_get_payload(root, info, **input):
         Model = UserModel
         user = context.user
         user.is_current_user = True
@@ -249,8 +249,8 @@ class Query(AbstractType):
     users = DjangoFilterConnectionField(UserNode)
 
     me = graphene.Field(UserNode)
-    def resolve_me(self, args, context, info):
-        return UserNode.get_node(context.user.id, context, info)
+    def resolve_me(self, info):
+        return UserNode.get_node(info, info.context.user.id)
 
 
 class Mutation(AbstractType):
